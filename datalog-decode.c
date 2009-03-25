@@ -128,14 +128,19 @@ void process_buffer(gbuint8* buffer, int length, int gpx_format) {
     long time;
     int ecef_x,  ecef_y, ecef_z,  speed;
     double latitude, longitude, height;
+    int tagged_entry = 0;
 
     DEBUG("processing %d bytes\n", length);
 
     while ( offset < length ) {
-        if ( buffer[offset] == 0x40 ) {
+        if ( buffer[offset] & 0x40 ) {
             /* long entry */
             decode_long_entry(buffer+offset,  &time, &ecef_x,&ecef_y, &ecef_z, &speed);
 	    ecef_to_geo(ecef_x, ecef_y,ecef_z ,&longitude, &latitude, &height);
+	    if( buffer[offset] & 0x20 ) {
+	    	tagged_entry = 1;
+	    }
+	    
 	    if (!gpx_format) {
 	        printf("%ld\t%d\t%f\t%f\t%f\n", time,speed,  longitude, latitude, height );
 	    } else {
