@@ -44,7 +44,7 @@
 #define SKYTRAQ_RESPONSE_NACK                    0x84
 #define SKYTRAQ_RESPONSE_EPHEMERIS_DATA          0xb1
 
-#define TIMEOUT  1000l
+#define TIMEOUT  2000l
 
 int skytraq_read_software_version( int fd) {
     int result = ERROR;
@@ -164,7 +164,7 @@ int skytraq_read_datalog_sector( int fd, gbuint8 sector, gbuint8* buffer ) {
             DEBUG("START READING DATA\n");
 
             cs = 0;
-            len = read( fd, &c, 1);
+            len = read_with_timeout( fd, &c, 1,TIMEOUT);
             while ( len > 0 ) {
                 if ( (lastByte2 == 'E') && (lastByte1 == 'N') && (c == 'D')) {
                     /* remove last two bytes from checksum */
@@ -185,18 +185,18 @@ int skytraq_read_datalog_sector( int fd, gbuint8 sector, gbuint8* buffer ) {
                 lastByte2 = lastByte1;
                 lastByte1 = c;
                 count++;
-                len = read( fd, &c, 1);
+                len = read_with_timeout( fd, &c, 1,TIMEOUT);
             }
 
 
             /* remaining characters after data block */
             for ( i=0; i<10; i++)
-                read( fd, &c, 1);
+                read_with_timeout( fd, &c, 1, TIMEOUT);
 
-            read( fd, &checksum, 1);
+            read_with_timeout( fd, &checksum, 1, TIMEOUT);
 
             for ( i=0; i<5; i++)
-                read( fd, &c, 1);
+                read_with_timeout( fd, &c, 1, TIMEOUT);
 
 
             if ( cs == checksum )
@@ -427,32 +427,15 @@ int skytraq_read_ok( int fd ) {
       return strncmp( "OK", (char*)&buf, 50) == 0;
    }
    
-   return 0;
+   return 2;
 }
 
 /**
   *  Send block of bytes and wait for OK\0
   */
 int skytraq_send_agps_data_block( int fd, gbuint8* data, unsigned block_size ) {
-   int i;
-   
    printf("sending %d bytes from position %p\n", block_size, data);
-   
-   for( i= 0; i< 16; i++) {
-      printf("%02x ", data[i]);
-   }
-   printf(" ... \n");
-   
-   int len = write_buffer(fd, data, block_size);
-
-   for( i= block_size-16; i< block_size; i++) {
-      printf("%02x ", data[i]);
-   }
-   printf("\n");
-   
-   
-   printf("%d bytes written\n", len);
-
+   write_buffer(fd, data, block_size);
    return skytraq_read_ok( fd );
 }
 
@@ -483,15 +466,15 @@ printf("waiting for OK\n");
        return ERROR;
     }
 
-    while( data_left >= 0x1000 ) {
+    int block_size = 0x2000;
+    while( data_left >= block_size ) {
        printf("data left: %d\n", data_left);
-       if( !skytraq_send_agps_data_block(fd, data->memory + offset , 0x1000) ) {
+       if( skytraq_send_agps_data_block(fd, data->memory + offset , block_size) == 0 ) {
          return ERROR;
        }
-       
-       
-       data_left -= 0x1000;
-       offset += 0x1000;
+
+       data_left -= block_size;
+       offset += block_size;
     }
     
     /* send last block */

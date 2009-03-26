@@ -25,6 +25,7 @@
 #define SKYTRAQ_RESPONSE_ACK                     0x83
 #define SKYTRAQ_RESPONSE_NACK                    0x84
 
+#define TIMEOUT  1000l
 
 typedef struct timeval hp_time;
 
@@ -52,6 +53,10 @@ int read_with_timeout( int fd, void* buffer, unsigned len, unsigned timeout) {
 	   bytesRead = 0;
         len = len - bytesRead;
         offset = offset + bytesRead;
+	
+	/* printf("bytes left: %d  time elapsed: %f\n", len, elapsed(&start)
+	);*/
+	
     }
 
 #ifdef DEBUG_ALL
@@ -65,7 +70,7 @@ int read_with_timeout( int fd, void* buffer, unsigned len, unsigned timeout) {
 
 gbuint8 readByte( int fd) {
     gbuint8 c;
-    read( fd, &c, 1);
+    read_with_timeout( fd, &c, 1,TIMEOUT);
     return c;
 }
 
@@ -172,7 +177,7 @@ SkyTraqPackage* skytraq_read_next_package( int fd, unsigned timeout ) {
             pkg->data = malloc(pkg->length);
             dataRead = 0;
             while ( dataRead < pkg->length) {
-                dataRead += read(fd,pkg->data+dataRead,(pkg->length-dataRead));
+                dataRead += read_with_timeout(fd,pkg->data+dataRead,(pkg->length-dataRead),TIMEOUT);
             }
 
             pkg->checksum = readByte(fd);
@@ -268,7 +273,7 @@ SkyTraqPackage* skytraq_new_package( int length ) {
 }
 
 int open_port( char* device) {
-    int    fd = open(device,O_RDWR /*| O_NONBLOCK */);
+    int    fd = open(device,O_RDWR | O_NONBLOCK );
     raw(fd);
     return fd;
 }
@@ -320,7 +325,6 @@ int read_string( int fd, gbuint8* buffer, int max_length, unsigned timeout ) {
     printf("read_string\n");
     
     len = read_with_timeout( fd, &c, 1, timeout);
-    printf(".\n");
     while ( len > 0 && elapsed(&start) < timeout ) {
        buffer[bytes_read] = c;
 
@@ -337,7 +341,6 @@ int read_string( int fd, gbuint8* buffer, int max_length, unsigned timeout ) {
        }
        
        len = read_with_timeout( fd, &c, 1, timeout);
-    printf(".\n");
     }
     printf("timeout\n");
     return -1;
