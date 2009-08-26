@@ -31,7 +31,7 @@ enum{ NO_ACTION, ACTION_INFO, ACTION_DELETE, ACTION_DUMP, ACTION_CONFIG,
 
 int main(int argc, char *argv[])  {
     int fd, i, baud_rate = 0, action=NO_ACTION, serial_speed=0;
-    int min_time=-1, max_time=-1, min_dist=-1, max_dist=-1, min_speed=-1, max_speed=-1, enable=0, disable=0, gpx_format=0;
+    int min_time=-1, max_time=-1, min_dist=-1, max_dist=-1, min_speed=-1, max_speed=-1, enable=0, disable=0;
     int mode_fifo = 0, mode_stop = 0;
     int permanent = 0;
     int success;
@@ -71,8 +71,6 @@ int main(int argc, char *argv[])  {
             mode_fifo = 1;
         } else if ( !strcmp(argv[i], "--mode-stop" ) ) {
             mode_stop = 1;
-        } else if ( !strcmp(argv[i], "--gpx" ) ) {
-            gpx_format = 1;
         } else if ( !strcmp(argv[i], "--permanent" ) ) {
             permanent = 1;
         } else if ( !strcmp(argv[i], "--set-output-off" ) ) {
@@ -101,8 +99,6 @@ int main(int argc, char *argv[])  {
         fprintf(stderr, "  --device <DEV>        name of the device, default is /dev/ttyUSB0\n");
         fprintf(stderr, "  --permanent           write serial port speed to FLASH\n");
 	fprintf(stderr, "  --baud-rate           set baud-rate manually\n");
-        fprintf(stderr, " OPTIONS for dump output:\n");
-        fprintf(stderr, "  --gpx                 dump track in gpx format\n");
         fprintf(stderr, " OPTIONS for configuration:\n");
         fprintf(stderr, "  --time <SECONDS>      log every <SECONDS> seconds\n");
         fprintf(stderr, "  --max-time <SECONDS>  \n");
@@ -181,9 +177,11 @@ int main(int argc, char *argv[])  {
 
         used_sectors = info->total_sectors - info->sectors_left + 1;
 
-	if (gpx_format) {
-	    printf("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<gpx>\n<trk>\n<trkseg>\n");
-	}
+	/* print GPX header */
+	printf("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+	printf("<gpx xmlns=\"http://www.topografix.com/GPX/1/0\" creator=\"skytraq-datalogger\" version=\"1.0\">\n");
+	printf("<trk>\n<trkseg>\n");
+	
         for ( i = 0; i< used_sectors ; i++ ) {
             int len, retries_left = 3;
             gbuint8* buf = malloc(4100);
@@ -193,16 +191,16 @@ int main(int argc, char *argv[])  {
                 len= skytraq_read_datalog_sector(fd,i,buf);
                 retries_left--;
             }
-            process_buffer(buf,len,gpx_format);
+            process_buffer(buf,len);
             free(buf);
 
             sleep(1);
             /* close(fd);
              fd = open("/dev/ttyUSB0",O_RDWR); */
         }
-	if (gpx_format) {
-	    printf("</trkseg>\n</trk>\n</gpx>\n");
-	}
+	
+	printf("</trkseg>\n</trk>\n</gpx>\n");
+	
     } else if ( action  == ACTION_CONFIG ) {
         if ( min_time > -1 ) info->min_time = min_time;
         if ( max_time > -1 ) info->max_time = max_time;

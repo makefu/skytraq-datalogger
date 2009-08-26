@@ -5,3 +5,9 @@ skytraq-datalogger (0.3-1) unstable; urgency=low
 
  -- Jesper Zedlitz <jesper@zedlitz.de> Thu, 23 Oct 2008 12:38:03 +0200
 
+skytraq-datalogger (0.4-1) unstable; urgency=low
+
+  * 2009-08-26: GPX output
+                support for devices that have a button to tag waypoints
+
+ -- Jesper Zedlitz <jesper@zedlitz.de> Wed, 26 Aug 2009 12:49:24 +0200

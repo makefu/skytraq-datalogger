@@ -82,7 +82,7 @@ void timestamp_to_iso8601str(char *time_string, time_t timestamp) {
 void output_gpx_trk_point( long timestamp, double latitude, double longitude, double height, int speed) {
     char iso8601str[] = "2008-10-16T14:55:29Z";
     timestamp_to_iso8601str(iso8601str, timestamp);
-    printf(" <trkpt lat=\"%f\" lon=\"%f\"> <time>%s</time> <ele>%f</ele> <speed>%d</speed> </trkpt>\n", latitude, longitude, iso8601str, height, speed);
+    printf(" <trkpt lat=\"%f\" lon=\"%f\"><ele>%f</ele><time>%s</time><speed>%d</speed></trkpt>\n", latitude, longitude,height,iso8601str, speed);
 }
 
 void decode_long_entry( gbuint8* d, long* time, int* ecef_x, int* ecef_y, int* ecef_z, int* speed) {
@@ -123,7 +123,7 @@ void decode_short_entry( gbuint8* d, long* time, int* ecef_x, int* ecef_y, int* 
     *ecef_z = *ecef_z + dz;
 }
 
-void process_buffer(gbuint8* buffer, int length, int gpx_format) {
+void process_buffer(gbuint8* buffer, int length) {
     int offset = 0;
     long time;
     int ecef_x,  ecef_y, ecef_z,  speed;
@@ -141,21 +141,16 @@ void process_buffer(gbuint8* buffer, int length, int gpx_format) {
 	    	tagged_entry = 1;
 	    }
 	    
-	    if (!gpx_format) {
-	        printf("%ld\t%d\t%f\t%f\t%f\n", time,speed,  longitude, latitude, height );
-	    } else {
-	        output_gpx_trk_point( time, latitude, longitude, height, speed);
-	    }
+	    output_gpx_trk_point( time, latitude, longitude, height, speed);
+
             offset += 18;
         } else if (  buffer[offset] == 0x80 ) {
             /* short entry */
             decode_short_entry(buffer+offset,  &time, &ecef_x,&ecef_y, &ecef_z, &speed);
 	    ecef_to_geo(ecef_x, ecef_y,ecef_z ,&longitude, &latitude, &height);
-	    if (!gpx_format) {
-		printf("%ld\t%d\t%f\t%f\t%f\n", time,speed,  longitude, latitude, height );
-	    } else {
-	        output_gpx_trk_point( time, latitude, longitude, height, speed);
-	    }
+	    
+	    output_gpx_trk_point( time, latitude, longitude, height, speed);
+	    
             offset += 8;
         } else {
             /* search for valid entry */

@@ -466,7 +466,7 @@ printf("waiting for OK\n");
        return ERROR;
     }
 
-    int block_size = 0x2000;
+    int block_size = 128;
     while( data_left >= block_size ) {
        printf("data left: %d\n", data_left);
        if( skytraq_send_agps_data_block(fd, data->memory + offset , block_size) == 0 ) {
