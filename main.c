@@ -158,15 +158,20 @@ int main(int argc, char *argv[])  {
         printf("log fifo mode:   %d\n", info->log_fifo_mode);
 	printf("AGPS enabled:    %d\n", info->agps_enabled);
 	printf("AGPS data left:  ");
-	if( agps_days == 1 ) {
-	  printf("1 day ");
-	} else if( agps_days > 0 ) {
-	  printf("%d days ", agps_days);
-	}
-	if( agps_hours == 1 ) {
-	  printf("1 hour");
-	} else if( agps_hours > 0 ) {
-	  printf("%d hours ", agps_hours);
+	
+	if( info->agps_hours_left == 0 ) {
+	   printf("none");
+	} else {
+		if( agps_days == 1 ) {
+		  printf("1 day ");
+		} else if( agps_days > 0 ) {
+		  printf("%d days ", agps_days);
+		} 
+		if( agps_hours == 1 ) {
+		  printf("1 hour");
+		} else if( agps_hours > 0 ) {
+		  printf("%d hours ", agps_hours);
+		}
 	}
 	printf("\n");
 	printf("baud-rate:       %d bps\n", baud_rate);

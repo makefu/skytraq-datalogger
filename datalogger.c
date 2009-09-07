@@ -423,7 +423,7 @@ int skytraq_read_ok( int fd ) {
    len = read_string(fd, (gbuint8*)&buf, 50, TIMEOUT );
    
    if( len > 0 ) {
-      printf("response from GPS device: %s\n", buf);
+      printf("skytraq_read_ok: response from GPS device: %s\n", buf);
       return strncmp( "OK", (char*)&buf, 50) == 0;
    }
    
@@ -434,9 +434,9 @@ int skytraq_read_ok( int fd ) {
   *  Send block of bytes and wait for OK\0
   */
 int skytraq_send_agps_data_block( int fd, gbuint8* data, unsigned block_size ) {
-   printf("sending %d bytes from position %p\n", block_size, data);
-   write_buffer(fd, data, block_size);
-   return skytraq_read_ok( fd );
+    write_buffer(fd, data, block_size);
+         
+    return skytraq_read_ok( fd );
 }
 
 
@@ -452,23 +452,23 @@ int skytraq_send_agps_data( int fd, agps_data* data  ) {
     skytraq_write_package_with_response(fd,request,TIMEOUT);
     skytraq_free_package(request);
 
-printf("got ACK\n");
+    printf("skytraq_send_agps_data: got ACK\n");
 
     /* start the transmission */    
     len = snprintf( (char*)info_string, 100, "BINSIZE = %d Checksum = %d Checksumb = %d ", data->size, data->checksumA, data->checksumB );
     info_string[len] = 0;
-    printf("%s\n", info_string);
+    printf("skytraq_send_agps_data: %s\n", info_string);
     
     write_buffer(fd, info_string, len+1);
     
-printf("waiting for OK\n");    
+    printf("skytraq_send_agps_data: waiting for OK\n");    
     if( ! skytraq_read_ok( fd ) ) {
        return ERROR;
     }
 
-    int block_size = 128;
+    int block_size = 8192;
     while( data_left >= block_size ) {
-       printf("data left: %d\n", data_left);
+       printf("skytraq_send_agps_data: data left: %d\n", data_left);
        if( skytraq_send_agps_data_block(fd, data->memory + offset , block_size) == 0 ) {
          return ERROR;
        }
@@ -478,10 +478,14 @@ printf("waiting for OK\n");
     }
     
     /* send last block */
-    printf("sending last %d bytes\n", data_left);
+    printf("skytraq_send_agps_data: sending last %d bytes\n", data_left);
     skytraq_send_agps_data_block(fd, data->memory + offset , data_left);
     
-    read_with_timeout( fd, &buf, 4, TIMEOUT);
+    
+    len = read_string(fd, (gbuint8*)buf, 50, TIMEOUT );
+   
+    buf[len] = 0;
+    printf("skytraq_send_agps_data: answer from GPS device: %s\n", buf);
         
     return buf[0] == 'E' && buf[1] == 'N' && buf[2] == 'D'&& buf[3] == 0;
 }

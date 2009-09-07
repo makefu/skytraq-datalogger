@@ -21,6 +21,7 @@
  */
 #include "datalogger.h"
 #include <sys/time.h>
+#include <errno.h>
 
 #define SKYTRAQ_RESPONSE_ACK                     0x83
 #define SKYTRAQ_RESPONSE_NACK                    0x84
@@ -116,16 +117,71 @@ void skytraq_dump_package( SkyTraqPackage* p ) {
     DEBUG(")\n");
 }
 
-int write_buffer(int fd, gbuint8* buf, int len) {
+int write_large_buffer( int fd, gbuint8* buf, int len) {
     int i, written;
+    int sum_written = 0;
+
+    printf("write_large_buffer:  length: %d byte\n", len);
+    printf("write_large_buffer:  first bytes: %02x %02x %02x %02x %02x \n", 
+    	buf[0],buf[1],buf[2],buf[3],buf[4]);
+    
     for ( i = 0; i< len;i++) {
         DEBUG("%02x ", buf[i]);
     }
-    written=   write(fd, buf, len);
+
+    // make output blocking
+    int flags = fcntl(fd, F_GETFL);
+    fcntl(fd, F_SETFL, flags & ~O_NONBLOCK); 
+
+    
+    while( len > 0 ) {
+    
+        gbuint8* data = buf + sum_written;
+    
+        written= write(fd, data, len);
+	
+	if( written < 0 ) {
+	   if( errno == EAGAIN ) {
+	       printf("write_large_buffer: EAGAIN\n");
+	       usleep(10000);
+	       written = 0;
+	   } else {
+	   printf("write_large_buffer: return with %d\n", written);
+	   printf("write_large_buffer: errno %d\n", errno);
+
+	// make output non-blocking
+	fcntl(fd, F_SETFL, flags | O_NONBLOCK); 
+
+	   return written;
+	   }
+	} else {
+//		printf("write_large_buffer: %d bytes written\n", written);
+//		printf("write_large_buffer: sending %d bytes from position %p\n", len, data);
+
+	}
+    	len -= written;
 
     DEBUG(" (%d byte written) ", written);
+	sum_written += written;
+    }
+
+    printf("write_large_buffer: has written %d bytes\n", sum_written);
+    printf("write_large_buffer: last bytes: %02x %02x %02x %02x %02x \n", 
+    	buf[sum_written-5], buf[sum_written-4], buf[sum_written-3], buf[sum_written-2], buf[sum_written-1]); 
+
+	// make output non-blocking
+	fcntl(fd, F_SETFL, flags | O_NONBLOCK); 
     
-    return written;
+    return sum_written;
+}
+
+int write_buffer(int fd, gbuint8* buf, int len) {
+
+    if( len > 64 ) {
+        return write_large_buffer(fd,buf,len);
+    }
+
+    return write(fd, buf, len);
 }
 
 void write_skytraq_package( int fd, SkyTraqPackage* p ) {
@@ -272,6 +328,7 @@ SkyTraqPackage* skytraq_new_package( int length ) {
     return request;
 }
 
+
 int open_port( char* device) {
     int    fd = open(device,O_RDWR | O_NONBLOCK );
     raw(fd);
@@ -322,7 +379,7 @@ int read_string( int fd, gbuint8* buffer, int max_length, unsigned timeout ) {
     hp_time start;
     gettimeofday(&start,NULL);
     
-    printf("read_string\n");
+      printf("read_string: BEGIN\n");
     
     len = read_with_timeout( fd, &c, 1, timeout);
     while ( len > 0 && elapsed(&start) < timeout ) {
@@ -336,12 +393,11 @@ int read_string( int fd, gbuint8* buffer, int max_length, unsigned timeout ) {
        bytes_read++;
        
        if( bytes_read >= max_length ) {
-          printf("read enough bytes\n");
 	  return -1; /* Did not reach the end of the string within <max_length> bytes. */
        }
        
        len = read_with_timeout( fd, &c, 1, timeout);
     }
-    printf("timeout\n");
+    printf("read_string: timeout\n");
     return -1;
 }

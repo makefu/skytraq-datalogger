@@ -11,10 +11,16 @@ int main(int argc, char *argv[])  {
     fd = open_port("/dev/ttyUSB0");
     speed =   skytraq_determine_speed(fd);
 
-    printf("opened device with %d bit/s\n", speed);
+    printf("TEST: opened device with %d bit/s\n", speed);
+
+unsigned requested_speed = skytraq_mkspeed( 115200 );
+skytraq_set_serial_speed(fd,requested_speed,0);
+speed =   skytraq_determine_speed(fd);
+
+    printf("TEST: opened device with %d bit/s\n", speed);
 
     if ( skytraq_download_agps_data(&data) ) {
-        printf("sending data...\n");
+        printf("TEST: sending data...\n");
         skytraq_send_agps_data( fd, &data );
         free(data.memory);
     }
