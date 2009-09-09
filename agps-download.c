@@ -40,29 +40,29 @@ static size_t WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *da
 }
 
 void skytraq_agps_calculate_checksums( agps_data* chunk ) {
-        unsigned long sumA = 0;
-        unsigned long sumB = 0;
-        unsigned counter = 0;
-        unsigned i;
+    unsigned long sumA = 0;
+    unsigned long sumB = 0;
+    unsigned counter = 0;
+    unsigned i;
 
-        for ( i = 0; i < chunk->size; i++ ) {
-            sumA += chunk->memory[i];
-            if ( counter < 0x10000 ) {
-                sumB += chunk->memory[i];
-                counter++;
-            }
+    for ( i = 0; i < chunk->size; i++ ) {
+        sumA += chunk->memory[i];
+        if ( counter < 0x10000 ) {
+            sumB += chunk->memory[i];
+            counter++;
         }
+    }
 
-        chunk->checksumA = sumA % 256;
-        chunk->checksumB = sumB % 256;
+    chunk->checksumA = sumA % 256;
+    chunk->checksumB = sumB % 256;
 }
 
 int skytraq_download_agps_data( agps_data* chunk ) {
     CURL *curl_handle;
 
-    chunk->memory=NULL; 
-    chunk->size = 0;   
-    
+    chunk->memory=NULL;
+    chunk->size = 0;
+
     curl_global_init(CURL_GLOBAL_ALL);
     curl_handle = curl_easy_init();
     curl_easy_setopt(curl_handle, CURLOPT_URL, EPHERMIS_URL );
@@ -71,10 +71,10 @@ int skytraq_download_agps_data( agps_data* chunk ) {
     curl_easy_perform(curl_handle);
     curl_easy_cleanup(curl_handle);
     curl_global_cleanup();
-    
-    if( chunk->size ) {
-       skytraq_agps_calculate_checksums(chunk);
+
+    if ( chunk->size ) {
+        skytraq_agps_calculate_checksums(chunk);
     }
- 
+
     return chunk->size > 0;
 }
