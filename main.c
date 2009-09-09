@@ -24,8 +24,12 @@
 #include "lowlevel.h"
 
 enum{ NO_ACTION, ACTION_INFO, ACTION_DELETE, ACTION_DUMP, ACTION_CONFIG,
-      ACTION_SET_SPEED, ACTION_OUTPUT_OFF, ACTION_OUTPUT_NMEA, ACTION_OUTPUT_BINARY
+      ACTION_SET_SPEED, ACTION_OUTPUT_OFF, ACTION_OUTPUT_NMEA, ACTION_OUTPUT_BINARY,
+      ACTION_AGPS_UPDATE
     };
+    
+enum { RETURN_OK, RETURN_ERROR, RETURN_ERROR_OPTIONS, RETURN_ERROR_AGPS_DOWNLOAD_FAILED
+};
 
 #define verbose(fmt, args...) fprintf(stderr, fmt"\n", ##args)
 
@@ -49,6 +53,8 @@ int main(int argc, char *argv[])  {
         } else if ( !strcmp(argv[i], "--set-baud-rate" ) ) {
             action = ACTION_SET_SPEED;
 	    if ( argc>i+1) serial_speed = atoi(argv[++i]);
+        } else if ( !strcmp(argv[i], "--update-agps" ) ) {
+            action = ACTION_AGPS_UPDATE;
         } else if ( !strcmp(argv[i], "--device" ) ) {
             if ( argc>i+1) device = argv[++i];
         } else if ( !strcmp(argv[i], "--time" ) ) {
@@ -95,6 +101,8 @@ int main(int argc, char *argv[])  {
         fprintf(stderr, "  --set-output-off   disable output for GPS data\n");
         fprintf(stderr, "  --set-output-nmea  enable output for GPS data in NMEA format\n");
         fprintf(stderr, "  --set-output-bin   enable output for GPS data in binary format\n");
+	fprintf(stderr, "  --update-agps      upload to AGPS data on the device\n");
+	fprintf(stderr, "                     (needs internet connection)\n");
         fprintf(stderr, " OPTIONS:\n");
         fprintf(stderr, "  --device <DEV>        name of the device, default is /dev/ttyUSB0\n");
         fprintf(stderr, "  --permanent           write serial port speed to FLASH\n");
@@ -110,7 +118,7 @@ int main(int argc, char *argv[])  {
         fprintf(stderr, "  --disable-log         turn off logging\n");
         fprintf(stderr, "  --mode-fifo           overwrite oldest entries when no space is left\n");
         fprintf(stderr, "  --mode-stop           stop logging when no space is left\n");
-        return 2;
+        return RETURN_ERROR_OPTIONS;
     }
 
     fd = open_port(device);
@@ -124,7 +132,7 @@ int main(int argc, char *argv[])  {
 	    baud_rate = skytraq_determine_speed(fd);
 	    if ( baud_rate == 0 ) {
 	        fprintf(stderr,"Could not find data logger at port %s\n", device);
-	        return 1;
+	        return RETURN_ERROR;
 	    }
     }
 
@@ -134,7 +142,7 @@ int main(int argc, char *argv[])  {
     
     if( success != SUCCESS ) {
     	fprintf(stderr, "No response from datalogger.\n");
-	return 1;
+	return RETURN_ERROR;
     }
 
     if ( action == ACTION_INFO ) {
@@ -224,7 +232,7 @@ int main(int argc, char *argv[])  {
 		skytraq_set_serial_speed(fd,requested_speed,permanent);
 	} else {
 	   fprintf( stderr, "unknown speed %d\n", serial_speed);
-	   return 1;
+	   return RETURN_ERROR;
 	}
     } else if( action == ACTION_OUTPUT_OFF ) {
     	skytraq_output_disable(fd);
@@ -232,9 +240,34 @@ int main(int argc, char *argv[])  {
     	skytraq_output_enable_nmea(fd);    
     } else if( action == ACTION_OUTPUT_BINARY ) {
        	skytraq_output_enable_binary(fd);
+    } else if( action == ACTION_AGPS_UPDATE ) {
+        agps_data data;
+	
+        printf("Downloading AGPS data from SkyTraq's FTP-server...\n");
+        if ( skytraq_download_agps_data(&data) ) {
+	   printf("Uploading AGPS data to GPS device...\n");
+	   
+	   /* switch to higher baud rate */
+	   unsigned old_baud_rate = baud_rate;
+	   baud_rate = 115200;
+	   if( baud_rate != old_baud_rate ) {
+	      skytraq_set_serial_speed(fd,skytraq_mkspeed( baud_rate ),0);
+	   }
+	   
+	   skytraq_send_agps_data( fd, &data );
+           free(data.memory);
+	   
+	   /* restore old baud rate */
+	   if( baud_rate != old_baud_rate ) {
+  	      skytraq_set_serial_speed(fd,skytraq_mkspeed( old_baud_rate ),0);
+	   }
+	} else {
+	    fprintf(stderr, "Download failed.\n");
+	    return RETURN_ERROR_AGPS_DOWNLOAD_FAILED;
+	}
     }
     free(info);
     close(fd);
 
-    return 0;
+    return RETURN_OK;
 }

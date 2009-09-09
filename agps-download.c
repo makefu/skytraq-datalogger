@@ -6,7 +6,7 @@
 #include <curl/types.h>
 #include <curl/easy.h>
 
-#define EPHERMIS_URL "http://localhost/~jesper/Eph.dat"
+#define EPHERMIS_URL "ftp://skytraq:skytraq@60.250.205.31/ephemeris/Eph.dat"
 
 typedef struct MemoryStruct {
     char *memory;

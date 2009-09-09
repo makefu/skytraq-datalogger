@@ -121,10 +121,6 @@ int write_large_buffer( int fd, gbuint8* buf, int len) {
     int i, written;
     int sum_written = 0;
 
-    printf("write_large_buffer:  length: %d byte\n", len);
-    printf("write_large_buffer:  first bytes: %02x %02x %02x %02x %02x \n", 
-    	buf[0],buf[1],buf[2],buf[3],buf[4]);
-    
     for ( i = 0; i< len;i++) {
         DEBUG("%02x ", buf[i]);
     }
@@ -142,32 +138,21 @@ int write_large_buffer( int fd, gbuint8* buf, int len) {
 	
 	if( written < 0 ) {
 	   if( errno == EAGAIN ) {
-	       printf("write_large_buffer: EAGAIN\n");
 	       usleep(10000);
 	       written = 0;
 	   } else {
-	   printf("write_large_buffer: return with %d\n", written);
-	   printf("write_large_buffer: errno %d\n", errno);
 
 	// make output non-blocking
 	fcntl(fd, F_SETFL, flags | O_NONBLOCK); 
 
 	   return written;
 	   }
-	} else {
-//		printf("write_large_buffer: %d bytes written\n", written);
-//		printf("write_large_buffer: sending %d bytes from position %p\n", len, data);
-
-	}
+	} 
     	len -= written;
 
     DEBUG(" (%d byte written) ", written);
 	sum_written += written;
     }
-
-    printf("write_large_buffer: has written %d bytes\n", sum_written);
-    printf("write_large_buffer: last bytes: %02x %02x %02x %02x %02x \n", 
-    	buf[sum_written-5], buf[sum_written-4], buf[sum_written-3], buf[sum_written-2], buf[sum_written-1]); 
 
 	// make output non-blocking
 	fcntl(fd, F_SETFL, flags | O_NONBLOCK); 
@@ -177,7 +162,7 @@ int write_large_buffer( int fd, gbuint8* buf, int len) {
 
 int write_buffer(int fd, gbuint8* buf, int len) {
 
-    if( len > 64 ) {
+    if( len > 20 ) {
         return write_large_buffer(fd,buf,len);
     }
 
@@ -378,9 +363,7 @@ int read_string( int fd, gbuint8* buffer, int max_length, unsigned timeout ) {
     gbuint8 c;
     hp_time start;
     gettimeofday(&start,NULL);
-    
-      printf("read_string: BEGIN\n");
-    
+       
     len = read_with_timeout( fd, &c, 1, timeout);
     while ( len > 0 && elapsed(&start) < timeout ) {
        buffer[bytes_read] = c;
@@ -393,11 +376,11 @@ int read_string( int fd, gbuint8* buffer, int max_length, unsigned timeout ) {
        bytes_read++;
        
        if( bytes_read >= max_length ) {
-	  return -1; /* Did not reach the end of the string within <max_length> bytes. */
+	  return bytes_read; /* Did not reach the end of the string within <max_length> bytes. */
        }
        
        len = read_with_timeout( fd, &c, 1, timeout);
     }
-    printf("read_string: timeout\n");
+    DEBUG("read_string: timeout\n");
     return -1;
 }
