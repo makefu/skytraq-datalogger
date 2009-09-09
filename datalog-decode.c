@@ -19,7 +19,7 @@
     Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111 USA
 
  */
- 
+
 #include "datalogger.h"
 #include <time.h>
 
@@ -70,22 +70,22 @@ void timestamp_to_iso8601str(char *time_string, time_t timestamp) {
     /* sample of iso8601 time in UTC: 2008-10-16T14:55:29Z */
     format = "%02d-%02d-%02dT%02d:%02d:%02d";
     n = sprintf(time_string, format,
-            tm->tm_year+1900,
-	    tm->tm_mon+1,
-	    tm->tm_mday,
-	    tm->tm_hour,
-	    tm->tm_min,
-	    tm->tm_sec);
+                tm->tm_year+1900,
+                tm->tm_mon+1,
+                tm->tm_mday,
+                tm->tm_hour,
+                tm->tm_min,
+                tm->tm_sec);
     time_string[n++] = 'Z';
 }
 
-void output_gpx_trk_point( long timestamp, double latitude, double longitude, double height, int speed) {
+void output_gpx_trk_point( const long timestamp, const double latitude, const double longitude, const double height, const int speed) {
     char iso8601str[] = "2008-10-16T14:55:29Z";
     timestamp_to_iso8601str(iso8601str, timestamp);
     printf(" <trkpt lat=\"%f\" lon=\"%f\"><ele>%f</ele><time>%s</time><speed>%d</speed></trkpt>\n", latitude, longitude,height,iso8601str, speed);
 }
 
-void decode_long_entry( gbuint8* d, long* time, int* ecef_x, int* ecef_y, int* ecef_z, int* speed) {
+void decode_long_entry( const gbuint8* d, long* time, int* ecef_x, int* ecef_y, int* ecef_z, int* speed) {
     int wno, tow;
 
     *speed = d[1];
@@ -98,7 +98,7 @@ void decode_long_entry( gbuint8* d, long* time, int* ecef_x, int* ecef_y, int* e
     *time = gsp_time_to_timestamp(wno,tow);
 }
 
-void decode_short_entry( gbuint8* d, long* time, int* ecef_x, int* ecef_y, int* ecef_z, int* speed ) {
+void decode_short_entry( const gbuint8* d, long* time, int* ecef_x, int* ecef_y, int* ecef_z, int* speed ) {
     int dt, dx,dy,dz;
     *speed = d[1];
     dt = (d[2] << 8) + d[3];
@@ -123,38 +123,58 @@ void decode_short_entry( gbuint8* d, long* time, int* ecef_x, int* ecef_y, int* 
     *ecef_z = *ecef_z + dz;
 }
 
-void process_buffer(gbuint8* buffer, int length) {
+/** returns the last recorded timestamp */
+long process_buffer(const gbuint8* buffer, const int length, const long first_timestamp ) {
     int offset = 0;
     long time;
     int ecef_x,  ecef_y, ecef_z,  speed;
     double latitude, longitude, height;
     int tagged_entry = 0;
+    long last_timestamp = first_timestamp;
 
     DEBUG("processing %d bytes\n", length);
 
+    printf("<!-- next sector -->\n");
+
     while ( offset < length ) {
+
+
         if ( buffer[offset] & 0x40 ) {
             /* long entry */
             decode_long_entry(buffer+offset,  &time, &ecef_x,&ecef_y, &ecef_z, &speed);
-	    ecef_to_geo(ecef_x, ecef_y,ecef_z ,&longitude, &latitude, &height);
-	    if( buffer[offset] & 0x20 ) {
-	    	tagged_entry = 1;
-	    }
-	    
-	    output_gpx_trk_point( time, latitude, longitude, height, speed);
+            ecef_to_geo(ecef_x, ecef_y,ecef_z ,&longitude, &latitude, &height);
+            if ( buffer[offset] & 0x20 ) {
+                tagged_entry = 1;
+            }
+
+            if ( (last_timestamp >  0) && (time > (last_timestamp + 3600l) )) {
+                /* start a new track segment if the time difference between
+                  two points is more than one hour */
+                printf("</trkseg>\n<trkseg>\n");
+            }
+            output_gpx_trk_point( time, latitude, longitude, height, speed);
 
             offset += 18;
         } else if (  buffer[offset] == 0x80 ) {
             /* short entry */
             decode_short_entry(buffer+offset,  &time, &ecef_x,&ecef_y, &ecef_z, &speed);
-	    ecef_to_geo(ecef_x, ecef_y,ecef_z ,&longitude, &latitude, &height);
-	    
-	    output_gpx_trk_point( time, latitude, longitude, height, speed);
-	    
+            ecef_to_geo(ecef_x, ecef_y,ecef_z ,&longitude, &latitude, &height);
+
+            if ( (last_timestamp >  0) && (time > (last_timestamp + 3600l) )) {
+                /* start a new track segment if the time difference between
+                  two points is more than one hour */
+                printf("</trkseg>\n<trkseg>\n");
+            }
+            output_gpx_trk_point( time, latitude, longitude, height, speed);
+
             offset += 8;
         } else {
             /* search for valid entry */
             offset++;
         }
+
+        last_timestamp = time;
     }
+
+    return last_timestamp;
 }

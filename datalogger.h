@@ -34,8 +34,8 @@
 #include <sys/time.h>
 #include "agps-download.h"
 
-enum{ERROR=-1, SUCCESS};
-enum{NACK=-1, ACK};
+enum {ERROR=-1, SUCCESS};
+enum {NACK=-1, ACK};
 
 #define gbuint8 unsigned char
 #define gbuint32 unsigned long
@@ -82,7 +82,7 @@ int skytraq_read_datalogger_config( int fd, skytraq_config* config);
 int skytraq_read_datalog_sector( int fd, gbuint8 sector, gbuint8* buffer );
 void skytraq_clear_datalog( int fd);
 void skytraq_write_datalogger_config( int fd, skytraq_config* config);
-void process_buffer(gbuint8* buffer, int length);
+long process_buffer(const gbuint8* buffer,const  int length,const  long last_timestamp);
 int skytraq_determine_speed( int fd) ;
 unsigned skytraq_mkspeed(unsigned br);
 int skytraq_set_serial_speed( int fd, int speed, int permanent);
