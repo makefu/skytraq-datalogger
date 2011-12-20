@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include <curl/curl.h>
-#include <curl/types.h>
 #include <curl/easy.h>
 
 #define EPHERMIS_URL "ftp://skytraq:skytraq@60.250.205.31/ephemeris/Eph.dat"
